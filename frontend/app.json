@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "name": "Ciuchy",
+    "slug": "ciuchy",
+    "scheme": "ciuchy",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "platforms": ["ios", "android", "web"],
+    "assetBundlePatterns": ["**/*"],
+    "plugins": []
+  }
+}

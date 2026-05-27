@@ -1,0 +1,32 @@
+{
+  "name": "frontend",
+  "version": "0.0.1",
+  "private": true,
+  "main": "expo/AppEntry",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "lint": "eslint \"**/*.{ts,tsx}\" --fix",
+    "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\""
+  },
+  "dependencies": {
+    "expo": "^54.0.0",
+    "expo-image-picker": "^16.0.0",
+    "expo-status-bar": "^3.0.0",
+    "react": "^19.0.0",
+    "react-native": "^0.81.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.26.0",
+    "@types/react": "^19.0.0",
+    "@types/react-native": "^0.73.0",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "eslint": "^9.0.0",
+    "eslint-config-prettier": "^9.0.0",
+    "prettier": "^3.0.0",
+    "typescript": "^5.6.0"
+  }
+}

@@ -1,0 +1,91 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum WardrobeCategory {
+  TOP
+  BOTTOM
+  OUTERWEAR
+  FOOTWEAR
+  HEADWEAR
+  ACCESSORY
+  EYEWEAR
+  UNDERWEAR
+  OTHER
+}
+
+enum TryOnJobStatus {
+  QUEUED
+  PROCESSING
+  SUCCEEDED
+  FAILED
+}
+
+model User {
+  id            String         @id @default(uuid())
+  email         String         @unique
+  displayName   String?
+  avatarUrl     String?
+  basePhotoUrl  String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  wardrobeItems WardrobeItem[]
+  outfits       Outfit[]
+  tryOnJobs     TryOnJob[]
+}
+
+model WardrobeItem {
+  id               String         @id @default(uuid())
+  userId           String
+  user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name             String
+  category         WardrobeCategory
+  subcategory      String?
+  brand            String?
+  color            String?
+  size             String?
+  tags             String[]       @default([])
+  originalImageUrl String
+  cutoutImageUrl   String?
+  maskImageUrl     String?
+  thumbnailUrl     String?
+  metadata         Json?
+  confidence       Float?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  outfits          Outfit[]       @relation("OutfitItems")
+  tryOnJobs        TryOnJob[]     @relation("TryOnJobItems")
+}
+
+model Outfit {
+  id          String         @id @default(uuid())
+  userId      String
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  style       String?
+  canvasState Json?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  items       WardrobeItem[] @relation("OutfitItems")
+}
+
+model TryOnJob {
+  id              String         @id @default(uuid())
+  userId          String
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sourcePhotoUrl  String
+  outputImageUrl  String?
+  status          TryOnJobStatus  @default(QUEUED)
+  poseData        Json?
+  humanParseData   Json?
+  errorMessage    String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  selectedItems   WardrobeItem[] @relation("TryOnJobItems")
+}
