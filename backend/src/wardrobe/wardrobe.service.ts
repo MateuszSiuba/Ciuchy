@@ -12,9 +12,17 @@ const DEFAULT_LATITUDE = 52.7368;
 const DEFAULT_LONGITUDE = 15.2288;
 
 type TemperatureBand = 'warm' | 'cool';
+type WeatherResponse = {
+  temperature: number;
+  weatherCode: number | null;
+};
 
 @Injectable()
 export class WardrobeService {
+  private weatherCache: WeatherResponse | null = null;
+  private lastWeatherFetch = 0;
+  private readonly CACHE_TTL = 60 * 60 * 1000;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly storageService: StorageService,
@@ -129,31 +137,55 @@ export class WardrobeService {
   private async fetchCurrentWeather(
     lat?: string,
     lon?: string
-  ): Promise<{ temperature: number; weatherCode: number | null }> {
+  ): Promise<WeatherResponse> {
+    const now = Date.now();
+
+    if (this.weatherCache !== null && now - this.lastWeatherFetch < this.CACHE_TTL) {
+      return this.weatherCache;
+    }
+
     const latitude = this.parseCoordinate(lat, DEFAULT_LATITUDE);
     const longitude = this.parseCoordinate(lon, DEFAULT_LONGITUDE);
     const openMeteoUrl = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true`;
 
-    const response = await fetch(openMeteoUrl);
+    try {
+      const response = await fetch(openMeteoUrl);
 
-    if (!response.ok) {
-      throw new Error(`Weather fetch failed: ${response.status}`);
+      if (!response.ok) {
+        throw new Error(`Weather fetch failed: ${response.status}`);
+      }
+
+      const payload = (await response.json()) as {
+        current_weather?: { temperature?: number; weathercode?: number };
+      };
+
+      const temperature = payload.current_weather?.temperature;
+
+      if (typeof temperature !== 'number') {
+        throw new Error('Weather response missing temperature');
+      }
+
+      const freshWeather: WeatherResponse = {
+        temperature,
+        weatherCode: typeof payload.current_weather?.weathercode === 'number' ? payload.current_weather.weathercode : null
+      };
+
+      this.weatherCache = freshWeather;
+      this.lastWeatherFetch = now;
+
+      return freshWeather;
+    } catch (error) {
+      console.warn('Weather fetch failed, using cached or fallback data:', error);
+
+      if (this.weatherCache !== null) {
+        return this.weatherCache;
+      }
+
+      return {
+        temperature: 20,
+        weatherCode: null
+      };
     }
-
-    const payload = (await response.json()) as {
-      current_weather?: { temperature?: number; weathercode?: number };
-    };
-
-    const temperature = payload.current_weather?.temperature;
-
-    if (typeof temperature !== 'number') {
-      throw new Error('Weather response missing temperature');
-    }
-
-    return {
-      temperature,
-      weatherCode: typeof payload.current_weather?.weathercode === 'number' ? payload.current_weather.weathercode : null
-    };
   }
 
   private parseCoordinate(value: string | undefined, fallback: number): number {
