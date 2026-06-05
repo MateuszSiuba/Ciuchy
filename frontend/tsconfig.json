@@ -3,9 +3,7 @@
   "compilerOptions": {
     "strict": true,
     "noImplicitAny": true,
-    "noFallthroughCasesInSwitch": true,
-    "ignoreDeprecations": "6.0",
-    "baseUrl": "."
+    "noFallthroughCasesInSwitch": true
   },
   "include": [
     "**/*.ts",

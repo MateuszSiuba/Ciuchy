@@ -178,8 +178,5 @@ function resolveApiUrl(): string {
     return productionUrl.replace(/\/+$/g, '');
   }
 
-  const hostUri = Constants.expoConfig?.hostUri ?? '';
-  const localHost = hostUri ? hostUri.split(':')[0] : '192.168.1.57';
-
-  return `http://${localHost}:3000/api`;
+  return 'https://wardrobe-api-8fd5.onrender.com/api';
 }

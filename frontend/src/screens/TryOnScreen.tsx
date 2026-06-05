@@ -1,4 +1,5 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import * as Location from 'expo-location';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -106,6 +107,25 @@ function getSuggestedSetupLayers(suggestion: DailySuggestion | null): CategoryKe
   return inferredLayers;
 }
 
+async function getDeviceLocationCoordinates(): Promise<{ lat: number; lon: number } | null> {
+  try {
+    const permission = await Location.requestForegroundPermissionsAsync();
+
+    if (!permission.granted) {
+      return null;
+    }
+
+    const position = await Location.getCurrentPositionAsync({});
+
+    return {
+      lat: position.coords.latitude,
+      lon: position.coords.longitude
+    };
+  } catch {
+    return null;
+  }
+}
+
 const NEON_LIME = '#D4FF00';
 
 export function TryOnScreen() {
@@ -171,7 +191,10 @@ export function TryOnScreen() {
     async function loadSetupSuggestion(): Promise<void> {
       try {
         setSetupLoading(true);
-        const suggestion = await fetchDailySuggestion();
+        const deviceCoordinates = await getDeviceLocationCoordinates();
+        const suggestion = deviceCoordinates
+          ? await fetchDailySuggestion(deviceCoordinates.lat, deviceCoordinates.lon)
+          : await fetchDailySuggestion();
 
         if (!isMounted) {
           return;

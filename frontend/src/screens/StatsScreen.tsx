@@ -10,7 +10,7 @@ const STAT_ROWS = [
   { label: 'Street Cred', value: 84 }
 ];
 
-export function StatsScreen(): JSX.Element {
+export function StatsScreen(): React.ReactElement {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }} edges={['top']}>
       <View style={styles.header}>

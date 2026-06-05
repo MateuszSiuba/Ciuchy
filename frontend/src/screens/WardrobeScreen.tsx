@@ -8,7 +8,7 @@ type Props = {
   userId: string;
 };
 
-export function WardrobeScreen({ userId }: Props): JSX.Element {
+export function WardrobeScreen({ userId }: Props): React.ReactElement {
   const [items, setItems] = useState<WardrobeItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -20,7 +20,7 @@ export function WardrobeScreen({ userId }: Props): JSX.Element {
       try {
         setError(null);
         setLoading(true);
-        const wardrobeItems = await fetchWardrobe(userId);
+        const wardrobeItems = await fetchWardrobe();
 
         if (isMounted) {
           setItems(wardrobeItems);

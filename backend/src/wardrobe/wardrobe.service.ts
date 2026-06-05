@@ -21,6 +21,7 @@ type WeatherResponse = {
 export class WardrobeService {
   private weatherCache: WeatherResponse | null = null;
   private lastWeatherFetch = 0;
+  private weatherCacheKey = '';
   private readonly CACHE_TTL = 60 * 60 * 1000;
 
   constructor(
@@ -139,27 +140,27 @@ export class WardrobeService {
     lon?: string
   ): Promise<WeatherResponse> {
     const now = Date.now();
+    const weatherQuery = this.buildWeatherQuery(lat, lon);
 
-    if (this.weatherCache !== null && now - this.lastWeatherFetch < this.CACHE_TTL) {
+    if (this.weatherCache !== null && this.weatherCacheKey === weatherQuery && now - this.lastWeatherFetch < this.CACHE_TTL) {
       return this.weatherCache;
     }
 
-    const latitude = this.parseCoordinate(lat, DEFAULT_LATITUDE);
-    const longitude = this.parseCoordinate(lon, DEFAULT_LONGITUDE);
-    const openMeteoUrl = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true`;
+    const weatherApiKey = process.env.WEATHER_API_KEY ?? '';
+    const weatherApiUrl = `https://api.weatherapi.com/v1/current.json?key=${weatherApiKey}&q=${encodeURIComponent(weatherQuery)}&aqi=no`;
 
     try {
-      const response = await fetch(openMeteoUrl);
+      const response = await fetch(weatherApiUrl);
 
       if (!response.ok) {
         throw new Error(`Weather fetch failed: ${response.status}`);
       }
 
       const payload = (await response.json()) as {
-        current_weather?: { temperature?: number; weathercode?: number };
+        current?: { temp_c?: number; condition?: { code?: number } };
       };
 
-      const temperature = payload.current_weather?.temperature;
+      const temperature = payload.current?.temp_c;
 
       if (typeof temperature !== 'number') {
         throw new Error('Weather response missing temperature');
@@ -167,11 +168,12 @@ export class WardrobeService {
 
       const freshWeather: WeatherResponse = {
         temperature,
-        weatherCode: typeof payload.current_weather?.weathercode === 'number' ? payload.current_weather.weathercode : null
+        weatherCode: typeof payload.current?.condition?.code === 'number' ? payload.current.condition.code : null
       };
 
       this.weatherCache = freshWeather;
       this.lastWeatherFetch = now;
+      this.weatherCacheKey = weatherQuery;
 
       return freshWeather;
     } catch (error) {
@@ -186,6 +188,16 @@ export class WardrobeService {
         weatherCode: null
       };
     }
+  }
+
+  private buildWeatherQuery(lat?: string, lon?: string): string {
+    if (lat !== undefined && lon !== undefined) {
+      const latitude = this.parseCoordinate(lat, DEFAULT_LATITUDE);
+      const longitude = this.parseCoordinate(lon, DEFAULT_LONGITUDE);
+      return `${latitude},${longitude}`;
+    }
+
+    return 'auto:ip';
   }
 
   private parseCoordinate(value: string | undefined, fallback: number): number {
