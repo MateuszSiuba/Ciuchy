@@ -2,6 +2,8 @@
   "expo": {
     "name": "Ciuchy",
     "slug": "ciuchy",
+    "entryPoint": "./index.js",
+    "jsEngine": "jsc",
     "scheme": "ciuchy",
     "version": "1.0.0",
     "orientation": "portrait",

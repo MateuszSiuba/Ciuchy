@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Image, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
+import { Image } from 'expo-image';
 
 import { fetchWardrobe, WardrobeItem } from '../services/api';
 
@@ -71,7 +72,8 @@ export function WardrobeScreen({ userId }: Props): JSX.Element {
           <Image
             source={{ uri: item.cutoutImageUrl ?? item.originalImageUrl }}
             style={styles.image}
-            resizeMode="cover"
+            contentFit="cover"
+            transition={200}
           />
           <Text style={styles.cardTitle} numberOfLines={1}>
             {item.name}

@@ -3,13 +3,11 @@ import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { extname } from 'path';
 import { randomUUID } from 'crypto';
 
-type UploadableFile =
-  | Express.Multer.File
-  | {
-      buffer: Buffer;
-      originalname: string;
-      mimetype: string;
-    };
+export type UploadableFile = {
+  buffer: Buffer;
+  originalname: string;
+  mimetype: string;
+};
 
 @Injectable()
 export class StorageService {

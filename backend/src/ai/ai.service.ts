@@ -1,4 +1,6 @@
 import { Injectable } from '@nestjs/common';
+import { removeBackground } from '@imgly/background-removal-node';
+import sharp = require('sharp');
 
 import { StorageService } from '../storage/storage.service';
 
@@ -6,40 +8,31 @@ import { StorageService } from '../storage/storage.service';
 export class AiService {
   constructor(private readonly storageService: StorageService) {}
 
-  async processAndUploadCutout(originalImageUrl: string, fileName: string): Promise<string> {
-    const apiKey = process.env.PHOTOROOM_API_KEY;
+  async processAndUploadCutout(imageBuffer: Buffer, fileName: string, folderPath = 'cutouts'): Promise<string> {
+    try {
+      const mimeType = 'image/png';
+      const resolvedFileName = fileName.trim() || 'upload.jpg';
+      const normalizedBuffer = await this.normalizeToPng(imageBuffer);
+      const imageBlob = new Blob([new Uint8Array(normalizedBuffer)], { type: mimeType });
+      const cutoutBlob = await removeBackground(imageBlob);
+      const cutoutBuffer = Buffer.from(await cutoutBlob.arrayBuffer());
 
-    if (!apiKey) {
-      throw new Error('PHOTOROOM_API_KEY is not configured');
+      return this.storageService.uploadFile(
+        {
+          buffer: cutoutBuffer,
+          originalname: this.ensurePngFileName(resolvedFileName),
+          mimetype: mimeType
+        },
+        folderPath
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown background removal failure';
+      throw new Error(`Local background removal failed: ${message}`);
     }
+  }
 
-    const response = await fetch('https://image-api.photoroom.com/v2/edit', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        imageUrl: originalImageUrl,
-        outputFormat: 'png'
-      })
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Photoroom cutout failed: ${response.status} ${errorText}`);
-    }
-
-    const cutoutBuffer = Buffer.from(await response.arrayBuffer());
-
-    return this.storageService.uploadFile(
-      {
-        buffer: cutoutBuffer,
-        originalname: this.ensurePngFileName(fileName),
-        mimetype: 'image/png'
-      },
-      'cutouts'
-    );
+  private async normalizeToPng(imageBuffer: Buffer): Promise<Buffer> {
+    return sharp(imageBuffer).rotate().toFormat('png').toBuffer();
   }
 
   private ensurePngFileName(fileName: string): string {
