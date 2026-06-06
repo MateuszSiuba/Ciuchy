@@ -128,7 +128,11 @@ async function getDeviceLocationCoordinates(): Promise<{ lat: number; lon: numbe
 
 const NEON_LIME = '#D4FF00';
 
-export function TryOnScreen() {
+type Props = {
+  userId: string;
+};
+
+export function TryOnScreen({ userId }: Props) {
   const [items, setItems] = useState<WardrobeItem[]>([]);
   const [dailySuggestion, setDailySuggestion] = useState<DailySuggestion | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -157,7 +161,7 @@ export function TryOnScreen() {
       try {
         setError(null);
         setLoading(true);
-        const [wardrobeItems, userProfile] = await Promise.all([fetchWardrobe(), fetchUserProfile()]);
+        const [wardrobeItems, userProfile] = await Promise.all([fetchWardrobe(userId), fetchUserProfile(userId)]);
 
         if (isMounted) {
           setItems(wardrobeItems);
@@ -179,7 +183,7 @@ export function TryOnScreen() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     if (tryOnStep !== 'setup') {
@@ -193,8 +197,8 @@ export function TryOnScreen() {
         setSetupLoading(true);
         const deviceCoordinates = await getDeviceLocationCoordinates();
         const suggestion = deviceCoordinates
-          ? await fetchDailySuggestion(deviceCoordinates.lat, deviceCoordinates.lon)
-          : await fetchDailySuggestion();
+          ? await fetchDailySuggestion(userId, deviceCoordinates.lat, deviceCoordinates.lon)
+          : await fetchDailySuggestion(userId);
 
         if (!isMounted) {
           return;
@@ -219,7 +223,7 @@ export function TryOnScreen() {
     return () => {
       isMounted = false;
     };
-  }, [tryOnStep]);
+  }, [tryOnStep, userId]);
 
   const groupedItems = useMemo(() => {
     return items.reduce<LayeredWardrobeGroups>((groups, item) => {
@@ -310,7 +314,7 @@ export function TryOnScreen() {
         throw new Error('Camera capture failed');
       }
 
-      const updatedProfile = await uploadUserAvatar(capturedPhoto.uri);
+      const updatedProfile = await uploadUserAvatar(userId, capturedPhoto.uri);
       setProfile(updatedProfile);
       setShowCamera(false);
     } catch (currentError) {

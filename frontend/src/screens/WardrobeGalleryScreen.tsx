@@ -145,7 +145,11 @@ function toBackendCategory(category: string): string {
   return getBackendCategoryValue(category);
 }
 
-export function WardrobeGalleryScreen() {
+type Props = {
+  userId: string;
+};
+
+export function WardrobeGalleryScreen({ userId }: Props) {
   const [items, setItems] = useState<WardrobeItem[]>([]);
   const [dailySuggestion, setDailySuggestion] = useState<DailySuggestion | null>(null);
   const [cityName, setCityName] = useState<string | null>(null);
@@ -194,7 +198,7 @@ export function WardrobeGalleryScreen() {
       setError(null);
       setSuggestionError(null);
 
-      const wardrobeItems = await fetchWardrobe();
+      const wardrobeItems = await fetchWardrobe(userId);
       setItems(wardrobeItems);
 
       let smartSuggestion: DailySuggestion;
@@ -215,7 +219,7 @@ export function WardrobeGalleryScreen() {
         if (permission.granted) {
           const position = await Location.getCurrentPositionAsync({});
           const [suggestionFromLocation, place] = await Promise.all([
-            fetchDailySuggestion(position.coords.latitude, position.coords.longitude),
+            fetchDailySuggestion(userId, position.coords.latitude, position.coords.longitude),
             Location.reverseGeocodeAsync({
               latitude: position.coords.latitude,
               longitude: position.coords.longitude
@@ -229,11 +233,11 @@ export function WardrobeGalleryScreen() {
 
           setCityName(resolvedCity);
         } else {
-          smartSuggestion = await fetchDailySuggestion();
+          smartSuggestion = await fetchDailySuggestion(userId);
           setCityName(null);
         }
       } catch {
-        smartSuggestion = await fetchDailySuggestion();
+        smartSuggestion = await fetchDailySuggestion(userId);
         setCityName(null);
       } finally {
         setLocationLoading(false);
@@ -253,7 +257,7 @@ export function WardrobeGalleryScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [userId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -435,7 +439,7 @@ export function WardrobeGalleryScreen() {
 
     try {
       setSavingItemId(selectedItem.id);
-      const updatedItem = await updateWardrobeItem(selectedItem.id, {
+      const updatedItem = await updateWardrobeItem(userId, selectedItem.id, {
         name: draftItem.name.trim(),
         category: backendCategory,
         brand: draftItem.brand.trim(),
@@ -468,7 +472,7 @@ export function WardrobeGalleryScreen() {
 
     try {
       setDeletingItemId(selectedItem.id);
-      await deleteWardrobeItem(selectedItem.id);
+      await deleteWardrobeItem(userId, selectedItem.id);
       setItems((current) => current.filter((item) => item.id !== selectedItem.id));
       closeItemDetails();
     } catch (currentError) {

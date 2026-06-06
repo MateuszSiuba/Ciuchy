@@ -25,19 +25,22 @@ type BottomTabParamList = {
   'Add Item': undefined;
 };
 
-const DEMO_USER_ID = 'demo-user-id';
 const NEON_LIME = '#D4FF00';
 
-function AddItemTabScreen() {
+type BottomTabNavigatorProps = {
+  userId: string;
+};
+
+function AddItemTabScreen({ userId }: { userId: string }) {
   const navigation = useNavigation();
 
   return React.createElement(UploadScreen, {
-    userId: DEMO_USER_ID,
+    userId,
     onUploaded: () => navigation.navigate('Wardrobe' as never)
   });
 }
 
-export function BottomTabNavigator() {
+export function BottomTabNavigator({ userId }: BottomTabNavigatorProps) {
   const insets = useSafeAreaInsets();
 
   const baseTabHeight = 64;
@@ -54,10 +57,30 @@ export function BottomTabNavigator() {
         {
           initialRouteName: 'Wardrobe',
           children: [
-            React.createElement(Tab.Screen, { key: 'Wardrobe', name: 'Wardrobe', component: WardrobeGalleryScreen, options: { title: 'Wardrobe' } }),
-            React.createElement(Tab.Screen, { key: 'TryOn', name: 'TryOn', component: TryOnScreen, options: { title: 'Try On' } }),
-            React.createElement(Tab.Screen, { key: 'Stats', name: 'Stats', component: StatsScreen, options: { title: 'Stats' } }),
-            React.createElement(Tab.Screen, { key: 'Add Item', name: 'Add Item', component: AddItemTabScreen, options: { title: 'Add Item' } })
+            React.createElement(Tab.Screen, {
+              key: 'Wardrobe',
+              name: 'Wardrobe',
+              children: () => React.createElement(WardrobeGalleryScreen, { userId }),
+              options: { title: 'Wardrobe' }
+            }),
+            React.createElement(Tab.Screen, {
+              key: 'TryOn',
+              name: 'TryOn',
+              children: () => React.createElement(TryOnScreen, { userId }),
+              options: { title: 'Try On' }
+            }),
+            React.createElement(Tab.Screen, {
+              key: 'Stats',
+              name: 'Stats',
+              children: () => React.createElement(StatsScreen, { userId }),
+              options: { title: 'Stats' }
+            }),
+            React.createElement(Tab.Screen, {
+              key: 'Add Item',
+              name: 'Add Item',
+              children: () => React.createElement(AddItemTabScreen, { userId }),
+              options: { title: 'Add Item' }
+            })
           ],
           screenOptions: ({ route }) => ({
             headerShown: false,

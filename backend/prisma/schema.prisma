@@ -29,7 +29,13 @@ enum TryOnJobStatus {
 
 model User {
   id            String         @id @default(uuid())
-  email         String         @unique
+  email         String?        @unique
+  name          String         @default("Streetwear Legend")
+  isGuest       Boolean        @default(false)
+  level         Int            @default(1)
+  drip          Int            @default(0)
+  swag          Int            @default(0)
+  xp            Int            @default(0)
   displayName   String?
   avatarUrl     String?
   basePhotoUrl  String?

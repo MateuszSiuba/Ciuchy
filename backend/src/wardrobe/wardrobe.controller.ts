@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Headers, Param, Patch, Post, Query, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 
 import { UploadWardrobeItemDto } from './dto/upload-wardrobe-item.dto';
@@ -11,34 +11,62 @@ export class WardrobeController {
   constructor(private readonly wardrobeService: WardrobeService) {}
 
   @Get()
-  getWardrobe(): Promise<unknown[]> {
-    return this.wardrobeService.getWardrobeItems();
+  getWardrobe(@Headers('x-user-id') headerUserId?: string, @Query('userId') queryUserId?: string): Promise<unknown[]> {
+    const userId = this.resolveUserId(headerUserId, queryUserId);
+    return this.wardrobeService.getWardrobeItems(userId);
   }
 
   @Get('daily-suggestion')
   getDailySuggestion(
+    @Headers('x-user-id') headerUserId?: string,
+    @Query('userId') queryUserId?: string,
     @Query('lat') lat?: string,
     @Query('lon') lon?: string
   ): Promise<Record<string, unknown>> {
-    return this.wardrobeService.getDailySuggestion(lat, lon);
+    const userId = this.resolveUserId(headerUserId, queryUserId);
+    return this.wardrobeService.getDailySuggestion(userId, lat, lon);
   }
 
   @Post('upload')
   @UseInterceptors(FileInterceptor('image'))
   uploadWardrobeItem(
+    @UploadedFile() file: UploadableFile,
     @Body() dto: UploadWardrobeItemDto,
-    @UploadedFile() file: UploadableFile
+    @Headers('x-user-id') headerUserId?: string,
+    @Query('userId') queryUserId?: string
   ): Promise<Record<string, unknown>> {
-    return this.wardrobeService.createWardrobeItem(dto.userId, dto, file);
+    const userId = this.resolveUserId(dto.userId, headerUserId, queryUserId);
+    return this.wardrobeService.createWardrobeItem(userId, dto, file);
   }
 
   @Patch(':id')
-  updateWardrobeItem(@Param('id') id: string, @Body() dto: UpdateWardrobeItemDto): Promise<Record<string, unknown>> {
-    return this.wardrobeService.updateWardrobeItem(id, dto);
+  updateWardrobeItem(
+    @Param('id') id: string,
+    @Body() dto: UpdateWardrobeItemDto,
+    @Headers('x-user-id') headerUserId?: string,
+    @Query('userId') queryUserId?: string
+  ): Promise<Record<string, unknown>> {
+    const userId = this.resolveUserId(headerUserId, queryUserId);
+    return this.wardrobeService.updateWardrobeItem(userId, id, dto);
   }
 
   @Delete(':id')
-  deleteWardrobeItem(@Param('id') id: string): Promise<Record<string, boolean>> {
-    return this.wardrobeService.deleteWardrobeItem(id);
+  deleteWardrobeItem(
+    @Param('id') id: string,
+    @Headers('x-user-id') headerUserId?: string,
+    @Query('userId') queryUserId?: string
+  ): Promise<Record<string, boolean>> {
+    const userId = this.resolveUserId(headerUserId, queryUserId);
+    return this.wardrobeService.deleteWardrobeItem(userId, id);
+  }
+
+  private resolveUserId(...candidateIds: Array<string | undefined>): string {
+    const userId = candidateIds.map((value) => value?.trim()).find((value) => Boolean(value));
+
+    if (!userId) {
+      throw new BadRequestException('Missing userId');
+    }
+
+    return userId;
   }
 }

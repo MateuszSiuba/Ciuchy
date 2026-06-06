@@ -20,7 +20,7 @@ export function WardrobeScreen({ userId }: Props): React.ReactElement {
       try {
         setError(null);
         setLoading(true);
-        const wardrobeItems = await fetchWardrobe();
+        const wardrobeItems = await fetchWardrobe(userId);
 
         if (isMounted) {
           setItems(wardrobeItems);

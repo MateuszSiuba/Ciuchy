@@ -7,9 +7,22 @@ import { StorageService, UploadableFile } from '../storage/storage.service';
 import { UploadWardrobeItemDto } from './dto/upload-wardrobe-item.dto';
 import { UpdateWardrobeItemDto } from './dto/update-wardrobe-item.dto';
 
-const DEMO_USER_ID = 'demo-user-id';
 const DEFAULT_LATITUDE = 52.7368;
 const DEFAULT_LONGITUDE = 15.2288;
+const BRAND_REWARDS: Record<string, { xp: number; drip: number; swag: number }> = {
+  nike: { xp: 18, drip: 3, swag: 2 },
+  adidas: { xp: 16, drip: 2, swag: 2 },
+  jordan: { xp: 24, drip: 4, swag: 3 },
+  puma: { xp: 14, drip: 2, swag: 1 },
+  supreme: { xp: 30, drip: 5, swag: 5 },
+  stussy: { xp: 22, drip: 4, swag: 3 },
+  carhartt: { xp: 20, drip: 2, swag: 4 },
+  'ralph lauren': { xp: 20, drip: 3, swag: 3 },
+  balenciaga: { xp: 34, drip: 6, swag: 4 },
+  'off-white': { xp: 32, drip: 6, swag: 5 },
+  'mihara yasuhiro': { xp: 28, drip: 5, swag: 4 },
+  other: { xp: 12, drip: 1, swag: 1 }
+};
 
 type TemperatureBand = 'warm' | 'cool';
 type WeatherResponse = {
@@ -30,21 +43,24 @@ export class WardrobeService {
     private readonly aiService: AiService
   ) {}
 
-  async getWardrobeItems(): Promise<unknown[]> {
+  async getWardrobeItems(userId: string): Promise<unknown[]> {
+    await this.ensureUserExists(userId);
+
     return this.prisma.wardrobeItem.findMany({
-      where: { userId: DEMO_USER_ID },
+      where: { userId },
       orderBy: { createdAt: 'desc' }
     });
   }
 
-  async getDailySuggestion(lat?: string, lon?: string): Promise<Record<string, unknown>> {
+  async getDailySuggestion(userId: string, lat?: string, lon?: string): Promise<Record<string, unknown>> {
+    await this.ensureUserExists(userId);
     const weather = await this.fetchCurrentWeather(lat, lon);
     const temperatureBand: TemperatureBand = weather.temperature >= 20 ? 'warm' : 'cool';
 
     const [top, bottom, footwear] = await Promise.all([
-      this.pickSuggestedItem(WardrobeCategory.TOP, temperatureBand),
-      this.pickSuggestedItem(WardrobeCategory.BOTTOM, temperatureBand),
-      this.pickSuggestedItem(WardrobeCategory.FOOTWEAR, temperatureBand)
+      this.pickSuggestedItem(userId, WardrobeCategory.TOP, temperatureBand),
+      this.pickSuggestedItem(userId, WardrobeCategory.BOTTOM, temperatureBand),
+      this.pickSuggestedItem(userId, WardrobeCategory.FOOTWEAR, temperatureBand)
     ]);
 
     return {
@@ -59,8 +75,7 @@ export class WardrobeService {
     dto: UploadWardrobeItemDto,
     file: UploadableFile
   ): Promise<Record<string, unknown>> {
-
-    console.log('MOJE ID TO:', userId);
+    const user = await this.ensureUserExists(userId);
 
     const originalImageUrl = await this.storageService.uploadFile(file, 'originals');
     const cutoutImageUrl = await this.aiService.processAndUploadCutout(
@@ -71,26 +86,65 @@ export class WardrobeService {
     const publicOriginalUrl = originalImageUrl.replace('.storage.supabase.co/storage/v1/s3', '.supabase.co/storage/v1/object/public');
     const publicCutoutUrl = cutoutImageUrl.replace('.storage.supabase.co/storage/v1/s3', '.supabase.co/storage/v1/object/public');
 
-    return this.prisma.wardrobeItem.create({
-      data: {
-        userId,
-        name: dto.name,
-        category: dto.category as WardrobeCategory,
-        subcategory: dto.subcategory,
-        brand: dto.brand,
-        color: dto.color,
-        size: dto.size,
-        originalImageUrl: publicOriginalUrl, // <--- zmienione
-        cutoutImageUrl: publicCutoutUrl      // <--- zmienione
-      }
-    });
+    const brandReward = this.resolveBrandReward(dto.brand);
+
+    const nextXpTotal = user.xp + brandReward.xp;
+    const levelGained = Math.floor(nextXpTotal / 100) - Math.floor(user.xp / 100);
+    const nextUserLevel = user.level + levelGained;
+    const nextXp = nextXpTotal % 100;
+
+    const [createdItem, updatedUser] = await this.prisma.$transaction([
+      this.prisma.wardrobeItem.create({
+        data: {
+          userId,
+          name: dto.name,
+          category: dto.category as WardrobeCategory,
+          subcategory: dto.subcategory,
+          brand: dto.brand,
+          color: dto.color,
+          size: dto.size,
+          originalImageUrl: publicOriginalUrl,
+          cutoutImageUrl: publicCutoutUrl
+        }
+      }),
+      this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          drip: { increment: brandReward.drip },
+          swag: { increment: brandReward.swag },
+          xp: nextXp,
+          level: nextUserLevel
+        },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          isGuest: true,
+          level: true,
+          drip: true,
+          swag: true,
+          xp: true,
+          avatarUrl: true,
+          basePhotoUrl: true,
+          createdAt: true,
+          updatedAt: true
+        }
+      })
+    ]);
+
+    return {
+      item: createdItem,
+      user: updatedUser
+    };
   }
 
-  async updateWardrobeItem(id: string, dto: UpdateWardrobeItemDto): Promise<WardrobeItem> {
+  async updateWardrobeItem(userId: string, id: string, dto: UpdateWardrobeItemDto): Promise<WardrobeItem> {
+    await this.ensureUserExists(userId);
+
     const result = await this.prisma.wardrobeItem.updateMany({
       where: {
         id,
-        userId: DEMO_USER_ID
+        userId
       },
       data: {
         ...(dto.name !== undefined ? { name: dto.name } : {}),
@@ -109,7 +163,7 @@ export class WardrobeService {
     const updatedItem = await this.prisma.wardrobeItem.findFirst({
       where: {
         id,
-        userId: DEMO_USER_ID
+        userId
       }
     });
 
@@ -120,11 +174,13 @@ export class WardrobeService {
     return updatedItem;
   }
 
-  async deleteWardrobeItem(id: string): Promise<Record<string, boolean>> {
+  async deleteWardrobeItem(userId: string, id: string): Promise<Record<string, boolean>> {
+    await this.ensureUserExists(userId);
+
     const result = await this.prisma.wardrobeItem.deleteMany({
       where: {
         id,
-        userId: DEMO_USER_ID
+        userId
       }
     });
 
@@ -211,12 +267,13 @@ export class WardrobeService {
   }
 
   private async pickSuggestedItem(
+    userId: string,
     category: WardrobeCategory,
     temperatureBand: TemperatureBand
   ): Promise<WardrobeItem | null> {
     const allItemsInCategory = await this.prisma.wardrobeItem.findMany({
       where: {
-        userId: DEMO_USER_ID,
+        userId,
         category
       }
     });
@@ -245,5 +302,28 @@ export class WardrobeService {
     }
 
     return coolKeywords.test(searchText);
+  }
+
+  private async ensureUserExists(userId: string): Promise<{ id: string; level: number; xp: number }> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, level: true, xp: true }
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    return user;
+  }
+
+  private resolveBrandReward(brand?: string): { xp: number; drip: number; swag: number } {
+    const normalizedBrand = brand?.trim().toLowerCase();
+
+    if (!normalizedBrand) {
+      return BRAND_REWARDS.other;
+    }
+
+    return BRAND_REWARDS[normalizedBrand] ?? BRAND_REWARDS.other;
   }
 }

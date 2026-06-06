@@ -16,6 +16,11 @@ export type WardrobeItem = {
   size?: string | null;
 };
 
+export type UploadWardrobeItemResponse = {
+  item: WardrobeItem;
+  user: UserProfile;
+};
+
 export type WardrobeItemUpdate = {
   name?: string;
   category?: string;
@@ -27,7 +32,13 @@ export type WardrobeItemUpdate = {
 
 export type UserProfile = {
   id: string;
-  email: string;
+  email?: string | null;
+  name: string;
+  isGuest: boolean;
+  level: number;
+  drip: number;
+  swag: number;
+  xp: number;
   displayName?: string | null;
   avatarUrl?: string | null;
   basePhotoUrl?: string | null;
@@ -50,12 +61,46 @@ async function parseResponse<T>(response: Response): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-export async function fetchWardrobe(): Promise<WardrobeItem[]> {
-  const response = await fetch(`${API_URL}/wardrobe`);
+function buildUserHeaders(userId: string, contentType?: string): HeadersInit {
+  const headers: Record<string, string> = {
+    'x-user-id': userId
+  };
+
+  if (contentType) {
+    headers['Content-Type'] = contentType;
+  }
+
+  return headers;
+}
+
+export async function authGuest(): Promise<UserProfile> {
+  const response = await fetch(`${API_URL}/auth/guest`, {
+    method: 'POST'
+  });
+
+  return parseResponse<UserProfile>(response);
+}
+
+export async function authGoogle(email: string, name?: string, avatarUrl?: string): Promise<UserProfile> {
+  const response = await fetch(`${API_URL}/auth/google`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ email, name, avatarUrl })
+  });
+
+  return parseResponse<UserProfile>(response);
+}
+
+export async function fetchWardrobe(userId: string): Promise<WardrobeItem[]> {
+  const response = await fetch(`${API_URL}/wardrobe`, {
+    headers: buildUserHeaders(userId)
+  });
   return parseResponse<WardrobeItem[]>(response);
 }
 
-export async function fetchDailySuggestion(lat?: number, lon?: number): Promise<DailySuggestion> {
+export async function fetchDailySuggestion(userId: string, lat?: number, lon?: number): Promise<DailySuggestion> {
   const query = new URLSearchParams();
 
   if (typeof lat === 'number') {
@@ -66,16 +111,20 @@ export async function fetchDailySuggestion(lat?: number, lon?: number): Promise<
     query.set('lon', String(lon));
   }
 
-  const response = await fetch(`${API_URL}/wardrobe/daily-suggestion${query.toString() ? `?${query.toString()}` : ''}`);
+  const response = await fetch(`${API_URL}/wardrobe/daily-suggestion${query.toString() ? `?${query.toString()}` : ''}`, {
+    headers: buildUserHeaders(userId)
+  });
   return parseResponse<DailySuggestion>(response);
 }
 
-export async function fetchUserProfile(): Promise<UserProfile | null> {
-  const response = await fetch(`${API_URL}/user/profile`);
-  return parseResponse<UserProfile | null>(response);
+export async function fetchUserProfile(userId: string): Promise<UserProfile> {
+  const response = await fetch(`${API_URL}/user/profile`, {
+    headers: buildUserHeaders(userId)
+  });
+  return parseResponse<UserProfile>(response);
 }
 
-export async function uploadUserAvatar(imageUri: string): Promise<UserProfile | null> {
+export async function uploadUserAvatar(userId: string, imageUri: string): Promise<UserProfile> {
   const formData = new FormData();
   const uploadFile = getUploadFileDescriptorFromUri(imageUri);
 
@@ -87,10 +136,11 @@ export async function uploadUserAvatar(imageUri: string): Promise<UserProfile | 
 
   const response = await fetch(`${API_URL}/user/avatar`, {
     method: 'POST',
+    headers: buildUserHeaders(userId),
     body: formData
   });
 
-  return parseResponse<UserProfile | null>(response);
+  return parseResponse<UserProfile>(response);
 }
 
 export async function uploadWardrobeItem(
@@ -99,7 +149,7 @@ export async function uploadWardrobeItem(
   category: string,
   imageUri: string,
   metadata?: { brand?: string; color?: string; size?: string; subcategory?: string }
-): Promise<WardrobeItem> {
+): Promise<UploadWardrobeItemResponse> {
   const formData = new FormData();
   const uploadFile = getUploadFileDescriptorFromUri(imageUri);
 
@@ -126,27 +176,27 @@ export async function uploadWardrobeItem(
 
   const response = await fetch(`${API_URL}/wardrobe/upload`, {
     method: 'POST',
+    headers: buildUserHeaders(userId),
     body: formData
   });
 
-  return parseResponse<WardrobeItem>(response);
+  return parseResponse<UploadWardrobeItemResponse>(response);
 }
 
-export async function updateWardrobeItem(itemId: string, updates: WardrobeItemUpdate): Promise<WardrobeItem> {
+export async function updateWardrobeItem(userId: string, itemId: string, updates: WardrobeItemUpdate): Promise<WardrobeItem> {
   const response = await fetch(`${API_URL}/wardrobe/${itemId}`, {
     method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json'
-    },
+    headers: buildUserHeaders(userId, 'application/json'),
     body: JSON.stringify(updates)
   });
 
   return parseResponse<WardrobeItem>(response);
 }
 
-export async function deleteWardrobeItem(itemId: string): Promise<void> {
+export async function deleteWardrobeItem(userId: string, itemId: string): Promise<void> {
   const response = await fetch(`${API_URL}/wardrobe/${itemId}`, {
-    method: 'DELETE'
+    method: 'DELETE',
+    headers: buildUserHeaders(userId)
   });
 
   await parseResponse<{ success: boolean }>(response);
