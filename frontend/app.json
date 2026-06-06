@@ -6,6 +6,12 @@
     "jsEngine": "jsc",
     "scheme": "ciuchy",
     "version": "1.0.0",
+    "ios": {
+      "bundleIdentifier": "com.mateusz.wardroberpg"
+    },
+    "android": {
+      "package": "com.mateusz.wardroberpg"
+    },
     "orientation": "portrait",
     "platforms": [
       "ios",
@@ -17,6 +23,11 @@
     ],
     "plugins": [
       "expo-secure-store"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "b8d4c88f-d6ef-4fcd-a1f7-d0bdc97be62a"
+      }
+    }
   }
 }
