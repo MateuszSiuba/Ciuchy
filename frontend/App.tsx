@@ -1,31 +1,33 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Text, View } from 'react-native';
 import 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
+import * as SecureStore from 'expo-secure-store';
 
 import { BottomTabNavigator } from './src/navigation/BottomTabNavigator';
-import { authGuest, type UserProfile } from './src/services/api';
+import { LoginScreen } from './src/screens/LoginScreen';
+import type { UserProfile } from './src/services/api';
+
+const SESSION_STORAGE_KEY = 'ciuchy.session';
 
 export default function App(): React.ReactElement {
   const [sessionUser, setSessionUser] = useState<UserProfile | null>(null);
   const [loadingSession, setLoadingSession] = useState(true);
-  const [sessionError, setSessionError] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
 
     async function bootstrapSession(): Promise<void> {
       try {
-        setSessionError(null);
-        const guestUser = await authGuest();
+        const storedSession = await SecureStore.getItemAsync(SESSION_STORAGE_KEY);
+        const parsedSession = storedSession ? (JSON.parse(storedSession) as UserProfile) : null;
 
         if (isMounted) {
-          setSessionUser(guestUser);
+          setSessionUser(parsedSession);
         }
-      } catch (currentError) {
+      } catch {
         if (isMounted) {
-          setSessionError(currentError instanceof Error ? currentError.message : 'Could not start guest session');
+          setSessionUser(null);
         }
       } finally {
         if (isMounted) {
@@ -41,33 +43,26 @@ export default function App(): React.ReactElement {
     };
   }, []);
 
-  if (loadingSession) {
-    return (
-      <SafeAreaProvider>
-        <StatusBar style="dark" />
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' }}>
-          <ActivityIndicator />
-          <Text style={{ marginTop: 12, color: '#475569' }}>Starting guest session...</Text>
-        </View>
-      </SafeAreaProvider>
-    );
+  async function handleAuthenticated(user: UserProfile): Promise<void> {
+    await SecureStore.setItemAsync(SESSION_STORAGE_KEY, JSON.stringify(user));
+    setSessionUser(user);
   }
 
-  if (sessionError || !sessionUser) {
-    return (
-      <SafeAreaProvider>
-        <StatusBar style="dark" />
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', padding: 24 }}>
-          <Text style={{ color: '#b91c1c', textAlign: 'center' }}>{sessionError ?? 'Failed to start session'}</Text>
-        </View>
-      </SafeAreaProvider>
-    );
+  async function handleLogout(): Promise<void> {
+    await SecureStore.deleteItemAsync(SESSION_STORAGE_KEY);
+    setSessionUser(null);
   }
 
   return (
     <SafeAreaProvider>
       <StatusBar style="dark" />
-      <BottomTabNavigator userId={sessionUser.id} />
+      {loadingSession ? (
+        <LoginScreen loading message="Ładowanie sesji..." onAuthenticated={handleAuthenticated} />
+      ) : sessionUser ? (
+        <BottomTabNavigator user={sessionUser} onLogout={handleLogout} />
+      ) : (
+        <LoginScreen onAuthenticated={handleAuthenticated} />
+      )}
     </SafeAreaProvider>
   );
 }

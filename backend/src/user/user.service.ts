@@ -8,6 +8,7 @@ const USER_PROFILE_SELECT = {
   id: true,
   email: true,
   name: true,
+  authType: true,
   isGuest: true,
   level: true,
   drip: true,

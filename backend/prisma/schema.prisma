@@ -30,6 +30,8 @@ enum TryOnJobStatus {
 model User {
   id            String         @id @default(uuid())
   email         String?        @unique
+  password      String?
+  authType      String         @default("GUEST")
   name          String         @default("Streetwear Legend")
   isGuest       Boolean        @default(false)
   level         Int            @default(1)

@@ -34,6 +34,7 @@ export type UserProfile = {
   id: string;
   email?: string | null;
   name: string;
+  authType: 'GOOGLE' | 'EMAIL' | 'GUEST' | string;
   isGuest: boolean;
   level: number;
   drip: number;
@@ -88,6 +89,30 @@ export async function authGoogle(email: string, name?: string, avatarUrl?: strin
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({ email, name, avatarUrl })
+  });
+
+  return parseResponse<UserProfile>(response);
+}
+
+export async function registerUser(payload: { name: string; email: string; password: string }): Promise<UserProfile> {
+  const response = await fetch(`${API_URL}/auth/register`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(payload)
+  });
+
+  return parseResponse<UserProfile>(response);
+}
+
+export async function loginUser(payload: { email: string; password: string }): Promise<UserProfile> {
+  const response = await fetch(`${API_URL}/auth/login`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(payload)
   });
 
   return parseResponse<UserProfile>(response);
